@@ -1,14 +1,3 @@
-/*
- * Por: Wilton Lacerda Silva
- *    Ohmímetro utilizando o ADC da BitDogLab
- *
- * 
- * Neste exemplo, utilizamos o ADC do RP2040 para medir a resistência de um resistor
- * desconhecido, utilizando um divisor de tensão com dois resistores.
- * O resistor conhecido é de 10k ohm e o desconhecido é o que queremos medir.
- *
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "pico/stdlib.h"
@@ -20,7 +9,7 @@
 #define I2C_SDA 14
 #define I2C_SCL 15
 #define endereco 0x3C
-#define ADC_PIN 28 // GPIO para o voltímetro
+#define ADC_PIN 28 // GPIO para o Ohmímetro
 #define Botao_A 5  // GPIO para botão A
 
 int R_conhecido = 10000;   // Resistor de 10k ohm
