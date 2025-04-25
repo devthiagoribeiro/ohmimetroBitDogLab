@@ -10,10 +10,9 @@
 #define I2C_SCL 15
 #define endereco 0x3C
 #define ADC_PIN 28 // GPIO para o Ohmímetro
-#define Botao_A 5  // GPIO para botão A
 
-int R_conhecido = 10000;   // Resistor de 10k ohm
-float R_x = 0.0;           // Resistor desconhecido
+int R_conhecido = 9870;   // Resistor de 10k ohm
+float Rx = 0.0;           // Resistor desconhecido
 float ADC_VREF = 3.31;     // Tensão de referência do ADC
 int ADC_RESOLUTION = 4095; // Resolução do ADC (12 bits)
 
@@ -25,6 +24,34 @@ void gpio_irq_handler(uint gpio, uint32_t events)
   reset_usb_boot(0, 0);
 }
 
+//Função para filtrar o valor bruto medido dentro dos possíveis valores comerciais 
+float verificaRx(float Rx, float tolerancia) {
+  int e24[] = {10, 11, 12, 13, 15, 16, 18, 20, 22, 24, 27, 30, 
+               33, 36, 39, 43, 47, 51, 56, 62, 68, 75, 82, 91};
+
+  for (int dec = 10; dec <= 10000; dec *= 10) {
+    int i_start = 0;
+    int i_end = 24;
+
+    if (dec == 10) {
+      i_start = 17; // começa em 51
+    } else if (dec == 10000) {
+      i_end = 1; // só o valor 10
+    }
+
+    for (int i = i_start; i < i_end; i++) {
+      float valor = e24[i] * dec;
+      float margem = valor * tolerancia;
+      if (Rx >= valor - margem && Rx <= valor + margem) {
+        return valor;
+      }
+    }
+  }
+
+  return -1; // Nenhum valor encontrado
+}
+
+
 int main()
 {
   // Para ser utilizado o modo BOOTSEL com botão B
@@ -33,10 +60,6 @@ int main()
   gpio_pull_up(botaoB);
   gpio_set_irq_enabled_with_callback(botaoB, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
   // Aqui termina o trecho para modo BOOTSEL com botão B
-
-  gpio_init(Botao_A);
-  gpio_set_dir(Botao_A, GPIO_IN);
-  gpio_pull_up(Botao_A);
 
   // I2C Initialisation. Using it at 400Khz.
   i2c_init(I2C_PORT, 400 * 1000);
@@ -58,7 +81,6 @@ int main()
   adc_gpio_init(ADC_PIN); // GPIO 28 como entrada analógica
 
   float tensao;
-  char str_x[5]; // Buffer para armazenar a string
   char str_y[5]; // Buffer para armazenar a string
 
   bool cor = true;
@@ -74,27 +96,32 @@ int main()
     }
     float media = soma / 500.0f;
 
-      // Fórmula simplificada: R_x = R_conhecido * ADC_encontrado /(ADC_RESOLUTION - adc_encontrado)
-      R_x = (R_conhecido * media) / (ADC_RESOLUTION - media);
-
-    sprintf(str_x, "%1.0f", media); // Converte o inteiro em string
-    sprintf(str_y, "%1.0f", R_x);   // Converte o float em string
+    // Fórmula simplificada: R_x = R_conhecido * ADC_encontrado /(ADC_RESOLUTION - adc_encontrado)
+    Rx = (R_conhecido * media) / (ADC_RESOLUTION - media);
+  
+    sprintf(str_y, "%1.0f", verificaRx(Rx, 0.05));   // Converte o float em string
 
     // cor = !cor;
     //  Atualiza o conteúdo do display com animações
     ssd1306_fill(&ssd, !cor);                          // Limpa o display
     ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor);      // Desenha um retângulo
-    ssd1306_line(&ssd, 3, 25, 123, 25, cor);           // Desenha uma linha
-    ssd1306_line(&ssd, 3, 37, 123, 37, cor);           // Desenha uma linha
-    ssd1306_draw_string(&ssd, "CEPEDI   TIC37", 8, 6); // Desenha uma string
-    ssd1306_draw_string(&ssd, "EMBARCATECH", 20, 16);  // Desenha uma string
-    ssd1306_draw_string(&ssd, "  Ohmimetro", 10, 28);  // Desenha uma string
-    ssd1306_draw_string(&ssd, "ADC", 13, 41);          // Desenha uma string
-    ssd1306_draw_string(&ssd, "Resisten.", 50, 41);    // Desenha uma string
-    ssd1306_line(&ssd, 44, 37, 44, 60, cor);           // Desenha uma linha vertical
-    ssd1306_draw_string(&ssd, str_x, 8, 52);           // Desenha uma string
-    ssd1306_draw_string(&ssd, str_y, 59, 52);          // Desenha uma string
-    ssd1306_send_data(&ssd);                           // Atualiza o display
+    ssd1306_line(&ssd, 3, 15, 123, 15, cor);           // Desenha uma linha horinzotal
+    ssd1306_draw_string(&ssd, "  Ohmimetro", 8, 6);    // Desenha uma string
+    ssd1306_draw_string(&ssd, " Resistencia:", 8, 20); // Desenha uma string
+    
+    //Verificando se um valor válido de resistência foi encotrado para ser exibido no display,
+    //caso contrário exibe uma mensagem de valor não identificado
+    if(verificaRx(Rx, 0.05) > -1.0){
+      ssd1306_draw_string(&ssd, str_y, 45, 30);           // Desenha uma string (Rx)
+      ssd1306_line(&ssd, 8, 50, 45, 50, cor);             // Desenha uma linha horinzotal para formar o resistor
+      ssd1306_line(&ssd, 83, 50, 119, 50, cor);           // Desenha uma linha horinzotal para formar o resistor
+      ssd1306_rect(&ssd, 42, 45, 38, 17, cor, !cor);      // Desenha um retângulo para formar o resistor
+    }else{
+      ssd1306_draw_string(&ssd, "     Valor", 10, 32);    // Desenha uma string
+      ssd1306_draw_string(&ssd, "      nao", 10, 42);     // Desenha uma string
+      ssd1306_draw_string(&ssd, " identificado", 10, 52); // Desenha uma string
+    }
+    ssd1306_send_data(&ssd);                              // Atualiza o display
     sleep_ms(700);
   }
 }
