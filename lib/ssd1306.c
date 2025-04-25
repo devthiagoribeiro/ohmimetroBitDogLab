@@ -153,47 +153,51 @@ void ssd1306_vline(ssd1306_t *ssd, uint8_t x, uint8_t y0, uint8_t y1, bool value
     ssd1306_pixel(ssd, x, y, value);
 }
 
-// Função para desenhar um caractere
-void ssd1306_draw_char(ssd1306_t *ssd, char c, uint8_t x, uint8_t y)
+// Desenha um caractere com escala
+void ssd1306_draw_char(ssd1306_t *ssd, char c, uint8_t x, uint8_t y, float scale)
 {
   uint16_t index = 0;
 
-  // Verifica o caractere e calcula o índice correspondente na fonte
-  if (c >= ' ' && c <= '~') // Verifica se o caractere está na faixa ASCII válida
-  {
-    index = (c - ' ') * 8; // Calcula o índice baseado na posição do caractere na tabela ASCII
-  }
-  else
-  {
-    // Caractere inválido, desenha um espaço (ou pode ser tratado de outra forma)
-    index = 0; // Índice 0 corresponde ao caractere "nada" (espaço)
+  if (c >= ' ' && c <= '~') {
+    index = (c - ' ') * 8;
   }
 
-  // Desenha o caractere na tela
-  for (uint8_t i = 0; i < 8; ++i)
-  {
-    uint8_t line = font[index + i]; // Acessa a linha correspondente do caractere na fonte
-    for (uint8_t j = 0; j < 8; ++j)
-    {
-      ssd1306_pixel(ssd, x + i, y + j, line & (1 << j)); // Desenha cada pixel do caractere
+  for (uint8_t i = 0; i < 8; ++i) {
+    uint8_t line = font[index + i];
+
+    for (uint8_t j = 0; j < 8; ++j) {
+      if (line & (1 << j)) {
+        // Desenha um "bloco" proporcional à escala
+        for (uint8_t dx = 0; dx < scale; ++dx) {
+          for (uint8_t dy = 0; dy < scale; ++dy) {
+            ssd1306_pixel(ssd,
+                          x + (uint8_t)(i * scale) + dx,
+                          y + (uint8_t)(j * scale) + dy,
+                          true);
+          }
+        }
+      }
     }
   }
 }
 
-// Função para desenhar uma string
-void ssd1306_draw_string(ssd1306_t *ssd, const char *str, uint8_t x, uint8_t y)
+// Desenha uma string com escala
+void ssd1306_draw_string(ssd1306_t *ssd, const char *str, uint8_t x, uint8_t y, float scale)
 {
+  uint8_t char_width = (uint8_t)(8 * scale);
+  uint8_t char_height = (uint8_t)(8 * scale);
+
   while (*str)
   {
-    ssd1306_draw_char(ssd, *str++, x, y);
-    x += 8;
-    if (x + 8 >= ssd->width)
-    {
+    ssd1306_draw_char(ssd, *str++, x, y, scale);
+    x += char_width;
+
+    if (x + char_width >= ssd->width) {
       x = 0;
-      y += 8;
+      y += char_height;
     }
-    if (y + 8 >= ssd->height)
-    {
+
+    if (y + char_height >= ssd->height) {
       break;
     }
   }

@@ -15,6 +15,7 @@ int R_conhecido = 9870;   // Resistor de 10k ohm
 float Rx = 0.0;           // Resistor desconhecido
 float ADC_VREF = 3.31;     // Tensão de referência do ADC
 int ADC_RESOLUTION = 4095; // Resolução do ADC (12 bits)
+char *faixas[3];          //Armazena a sequência de faixas correspondente ao resistor que estamos medindo
 
 // Trecho para modo BOOTSEL com botão B
 #include "pico/bootrom.h"
@@ -51,9 +52,45 @@ float verificaRx(float Rx, float tolerancia) {
   return -1; // Nenhum valor encontrado
 }
 
+//Função para designar a tabela de cores do resistor desconhecido
+void tabelaDeCores(uint resistencia){
+  char *cores[] = {
+    "black",   // 0
+    "brown",   // 1
+    "red",     // 2
+    "orange",  // 3
+    "yellow",  // 4
+    "green",   // 5
+    "blue",    // 6
+    "violet",  // 7
+    "gray",    // 8
+    "white",   // 9
+  };
+
+  int primeira, segunda, multiplicador;
+
+  // Divide até que reste um número de dois dígitos
+  int base = resistencia;
+  multiplicador = 0;
+
+  while (base >= 100) {
+      base /= 10;
+      multiplicador++;
+  }
+
+  primeira = base / 10;
+  segunda = base % 10;
+
+  // Atribui as cores com base nos índices
+  faixas[0] = cores[primeira];
+  faixas[1] = cores[segunda];
+  faixas[2] = cores[multiplicador];
+  printf("%s\n", faixas[0]);
+}
 
 int main()
 {
+  stdio_init_all();
   // Para ser utilizado o modo BOOTSEL com botão B
   gpio_init(botaoB);
   gpio_set_dir(botaoB, GPIO_IN);
@@ -101,25 +138,36 @@ int main()
   
     sprintf(str_y, "%1.0f", verificaRx(Rx, 0.05));   // Converte o float em string
 
-    // cor = !cor;
     //  Atualiza o conteúdo do display com animações
     ssd1306_fill(&ssd, !cor);                          // Limpa o display
     ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor);      // Desenha um retângulo
     ssd1306_line(&ssd, 3, 15, 123, 15, cor);           // Desenha uma linha horinzotal
-    ssd1306_draw_string(&ssd, "  Ohmimetro", 8, 6);    // Desenha uma string
-    ssd1306_draw_string(&ssd, " Resistencia:", 8, 20); // Desenha uma string
+    ssd1306_draw_string(&ssd, "  Ohmimetro", 8, 6, 1);    // Desenha uma string
+    ssd1306_draw_string(&ssd, " Resistencia:", 22, 18, 0.8); // Desenha uma string
     
     //Verificando se um valor válido de resistência foi encotrado para ser exibido no display,
     //caso contrário exibe uma mensagem de valor não identificado
     if(verificaRx(Rx, 0.05) > -1.0){
-      ssd1306_draw_string(&ssd, str_y, 45, 30);           // Desenha uma string (Rx)
-      ssd1306_line(&ssd, 8, 50, 45, 50, cor);             // Desenha uma linha horinzotal para formar o resistor
-      ssd1306_line(&ssd, 83, 50, 119, 50, cor);           // Desenha uma linha horinzotal para formar o resistor
-      ssd1306_rect(&ssd, 42, 45, 38, 17, cor, !cor);      // Desenha um retângulo para formar o resistor
+      tabelaDeCores(verificaRx(Rx, 0.05)); //Armazena a sequência de cores correspondente a rx em faixas
+      ssd1306_draw_string(&ssd, str_y, 45, 26, 1);           // Desenha uma string (Rx)
+      //representação da tabela de cores
+      ssd1306_draw_string(&ssd, faixas[0], 6, 37, 0.8);     // Desenha uma string 
+      ssd1306_draw_string(&ssd, faixas[1], 45, 37, 0.8);   // Desenha uma string
+      ssd1306_draw_string(&ssd, faixas[2], 85, 37, 0.8);  // Desenha uma string 
+      ssd1306_rect(&ssd, 35, 3, 41, 10, cor, !cor);      // Desenha um retângulo
+      ssd1306_rect(&ssd, 35, 43, 41, 10, cor, !cor);      // Desenha um retângulo
+      ssd1306_rect(&ssd, 35, 83, 42, 10, cor, !cor);      // Desenha um retângulo
+      //desenho do resistor
+      ssd1306_line(&ssd, 8, 53, 45, 53, cor);             // Desenha uma linha horinzotal para formar o resistor
+      ssd1306_line(&ssd, 83, 53, 119, 53, cor);           // Desenha uma linha horinzotal para formar o resistor
+      ssd1306_rect(&ssd, 47, 45, 38, 14, cor, !cor);      // Desenha um retângulo para formar o resistor
+      ssd1306_rect(&ssd, 47, 50, 5, 14, cor, cor);      // Desenha um retângulo para formar o resistor
+      ssd1306_rect(&ssd, 47, 60, 5, 14, cor, cor);      // Desenha um retângulo para formar o resistor
+      ssd1306_rect(&ssd, 47, 70, 5, 14, cor, cor);      // Desenha um retângulo para formar o resistor
     }else{
-      ssd1306_draw_string(&ssd, "     Valor", 10, 32);    // Desenha uma string
-      ssd1306_draw_string(&ssd, "      nao", 10, 42);     // Desenha uma string
-      ssd1306_draw_string(&ssd, " identificado", 10, 52); // Desenha uma string
+      ssd1306_draw_string(&ssd, "     Valor", 10, 32, 1);    // Desenha uma string
+      ssd1306_draw_string(&ssd, "      nao", 10, 42, 1);     // Desenha uma string
+      ssd1306_draw_string(&ssd, " identificado", 10, 52, 1); // Desenha uma string
     }
     ssd1306_send_data(&ssd);                              // Atualiza o display
     sleep_ms(700);
