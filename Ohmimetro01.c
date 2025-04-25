@@ -5,6 +5,8 @@
 #include "hardware/i2c.h"
 #include "lib/ssd1306.h"
 #include "lib/font.h"
+#include "hardware/pio.h"
+#include "lib/matriz_leds.h"
 #define I2C_PORT i2c1
 #define I2C_SDA 14
 #define I2C_SCL 15
@@ -16,6 +18,8 @@ float Rx = 0.0;           // Resistor desconhecido
 float ADC_VREF = 3.31;     // Tensão de referência do ADC
 int ADC_RESOLUTION = 4095; // Resolução do ADC (12 bits)
 char *faixas[3];          //Armazena a sequência de faixas correspondente ao resistor que estamos medindo
+PIO pio;                  //variável para configuração da matriz de leds
+uint sm;                  //variável para configuração da matriz de leds
 
 // Trecho para modo BOOTSEL com botão B
 #include "pico/bootrom.h"
@@ -52,7 +56,7 @@ float verificaRx(float Rx, float tolerancia) {
   return -1; // Nenhum valor encontrado
 }
 
-//Função para designar a tabela de cores do resistor desconhecido
+//Função para designar a tabela de cores do resistor que está sendo medido
 void tabelaDeCores(uint resistencia){
   char *cores[] = {
     "black",   // 0
@@ -85,12 +89,20 @@ void tabelaDeCores(uint resistencia){
   faixas[0] = cores[primeira];
   faixas[1] = cores[segunda];
   faixas[2] = cores[multiplicador];
-  printf("%s\n", faixas[0]);
+  //Acende as faixas de led correspondentes na matriz de leds
+  imprimirColuna((config){
+    {0, primeira},
+    {2, segunda},
+    {4, multiplicador}
+  }, pio, sm);
 }
 
 int main()
 {
   stdio_init_all();
+  //inicialização da matriz de leds
+  pio = pio0;
+  sm = configurar_matriz(pio);
   // Para ser utilizado o modo BOOTSEL com botão B
   gpio_init(botaoB);
   gpio_set_dir(botaoB, GPIO_IN);
@@ -113,6 +125,9 @@ int main()
   // Limpa o display. O display inicia com todos os pixels apagados.
   ssd1306_fill(&ssd, false);
   ssd1306_send_data(&ssd);
+
+  // Limpa a matriz de leds
+  clearMatriz(pio, sm);
 
   adc_init();
   adc_gpio_init(ADC_PIN); // GPIO 28 como entrada analógica
@@ -165,6 +180,7 @@ int main()
       ssd1306_rect(&ssd, 47, 60, 5, 14, cor, cor);      // Desenha um retângulo para formar o resistor
       ssd1306_rect(&ssd, 47, 70, 5, 14, cor, cor);      // Desenha um retângulo para formar o resistor
     }else{
+      clearMatriz(pio, sm);                                  // Limpa a matriz de leds
       ssd1306_draw_string(&ssd, "     Valor", 10, 32, 1);    // Desenha uma string
       ssd1306_draw_string(&ssd, "      nao", 10, 42, 1);     // Desenha uma string
       ssd1306_draw_string(&ssd, " identificado", 10, 52, 1); // Desenha uma string
