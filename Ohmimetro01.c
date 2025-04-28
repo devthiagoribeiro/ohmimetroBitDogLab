@@ -21,14 +21,6 @@ char *faixas[3];          //Armazena a sequência de faixas correspondente ao re
 PIO pio;                  //variável para configuração da matriz de leds
 uint sm;                  //variável para configuração da matriz de leds
 
-// Trecho para modo BOOTSEL com botão B
-#include "pico/bootrom.h"
-#define botaoB 6
-void gpio_irq_handler(uint gpio, uint32_t events)
-{
-  reset_usb_boot(0, 0);
-}
-
 //Função para filtrar o valor bruto medido dentro dos possíveis valores comerciais 
 float verificaRx(float Rx, float tolerancia) {
   int e24[] = {10, 11, 12, 13, 15, 16, 18, 20, 22, 24, 27, 30, 
@@ -103,12 +95,6 @@ int main()
   //inicialização da matriz de leds
   pio = pio0;
   sm = configurar_matriz(pio);
-  // Para ser utilizado o modo BOOTSEL com botão B
-  gpio_init(botaoB);
-  gpio_set_dir(botaoB, GPIO_IN);
-  gpio_pull_up(botaoB);
-  gpio_set_irq_enabled_with_callback(botaoB, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
-  // Aqui termina o trecho para modo BOOTSEL com botão B
 
   // I2C Initialisation. Using it at 400Khz.
   i2c_init(I2C_PORT, 400 * 1000);
